@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 
 	"rtpaudio"
@@ -65,27 +64,18 @@ func main() {
 	}
 	if *alignedPlan != "" {
 		data, err := os.ReadFile(*alignedPlan)
-		var plan rtpaudio.AlignmentPlan
-		if err == nil {
-			err = json.Unmarshal(data, &plan)
-		}
 		if err != nil {
-			log.Fatalf("aligned plan: %v", err)
+			log.Fatalf("read aligned plan: %v", err)
 		}
-		output, err := receiver.Aligned(plan)
+		var plan rtpaudio.AlignmentPlan
+		if err := json.Unmarshal(data, &plan); err != nil {
+			log.Fatalf("parse aligned plan: %v", err)
+		}
+		wav, evidence, err := receiver.ExportAligned(*outDir, plan)
 		if err != nil {
 			log.Fatalf("aligned export: %v", err)
 		}
-		evidence, err := json.MarshalIndent(output.Evidence, "", "  ")
-		if err != nil {
-			log.Fatal(err)
-		}
-		if err = os.WriteFile(filepath.Join(*outDir, "aligned.wav"), output.WAV, 0644); err != nil {
-			log.Fatal(err)
-		}
-		if err = os.WriteFile(filepath.Join(*outDir, "aligned.json"), evidence, 0644); err != nil {
-			log.Fatal(err)
-		}
+		log.Printf("exported %s and %s", wav, evidence)
 	}
 	if err := <-runErr; err != nil && ctx.Err() == nil {
 		log.Fatal(err)
